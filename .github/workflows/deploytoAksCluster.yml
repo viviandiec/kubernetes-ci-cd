@@ -1,0 +1,50 @@
+on: [push]
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@master
+    
+    - uses: azure/docker-login@v1
+      with:
+        login-server: aultest.azurecr.io
+        username: ${{ secrets.acr_aultest_username }}
+        password: ${{ secrets.acr_aultest_password }}
+    
+    - name: Build and push image to ACR
+      id: build-image
+      run: |
+        docker build "$GITHUB_WORKSPACE/applications/hello-kenzan" -f  "applications/hello-kenzan/Dockerfile" -t aultest.azurecr.io/vivianaks:${{ github.sha }} --label dockerfile-path=applications/hello-kenzan/Dockerfile
+        docker push aultest.azurecr.io/vivianaks:${{ github.sha }}
+    
+    - uses: azure/k8s-set-context@v1
+      with:
+         kubeconfig: ${{ secrets.aks_vivianaks_kubeConfig }}
+      id: login
+    
+    - name: Create namespace
+      run: |
+        namespacePresent=`kubectl get namespace | grep vivianaksbb5a | wc -l`
+        if [ $namespacePresent -eq 0 ]
+        then
+            echo `kubectl create namespace vivianaksbb5a`
+        fi
+
+    - uses: azure/k8s-create-secret@v1
+      with:
+        namespace: vivianaksbb5a
+        container-registry-url: aultest.azurecr.io
+        container-registry-username: ${{ secrets.acr_aultest_username }}
+        container-registry-password: ${{ secrets.acr_aultest_password }}
+        secret-name: vivianaksdockerauth
+       
+    - uses: azure/k8s-deploy@v1.2
+      with:
+        namespace: vivianaksbb5a
+        manifests: |
+          manifests/deployment.yml
+          manifests/service.yml
+        images: |
+          aultest.azurecr.io/vivianaks:${{ github.sha }}
+        imagepullsecrets: |
+          vivianaksdockerauth
