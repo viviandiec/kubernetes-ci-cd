@@ -1,0 +1,19 @@
+apiVersion : apps/v1
+kind: Deployment
+metadata:
+  name: "vivianaks-7fd1"
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: "vivianaks-7fd1"
+  template:
+    metadata:
+      labels:
+        app: "vivianaks-7fd1"
+    spec:
+      containers:
+        - name: "vivianaks-7fd1"
+          image: "aultest.azurecr.io/vivianaks"
+          ports:
+          - containerPort: 80
